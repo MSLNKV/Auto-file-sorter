@@ -10,5 +10,33 @@ To create an automatic sorter of files that end up in a directory (for example, 
 3) Individual reminder rules for each file category
 4) Handling errors and unexpected user actions
 
+## 📌 Current Status
+**Last updated:** 2025-09-09 
 
+###✅ What is already implemented:
+- 🔹Sorting files by:
+- Extension (categories based on file types)
+- Content type (images, documents, archives, etc.)
+- 🔹 Automatic creation of folders for categories
+- 🔹 Automatic logging with division by days
+- 🔹 Cleaning old logs (older than 72 hours)
+- 🔹 Deleting empty folders after sorting
+- 🔹 `Undo/Redo` system for undoing/returning actions
+  
+###🛠️In work:
+- 🔸 Support for custom categories (folder structure customization)
+- 🔸 Development of a module **reminders about cleaning** (Reminder)
+- 🔸 Refactoring and optimization of algorithms
+- 🔸 Preparation for integration of GUI or CLI interface
+- 🔸 Increasing code stability and error handling
+
+### 🎯 Future plans:
+- 📂 Implementation of a database for storing the history of actions and settings
+- 🔍 Extended metadata system for files (view flags, reminders)
+- 🧩 Integration of a sorter into the future project **NoctisExplorer**
+- 🌐 Cross-platform support (Linux/Windows/macOS)
+- 🎨 Development of a user interface
+
+
+## The project's philosophy is not to use neural networks in any form. Let it be "non-professional code", but it will give me experience
 
