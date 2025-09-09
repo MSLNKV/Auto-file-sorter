@@ -13,7 +13,7 @@ To create an automatic sorter of files that end up in a directory (for example, 
 ## 📌 Current Status
 **Last updated:** 2025-09-09 
 
-###✅ What is already implemented:
+### ✅ What is already implemented:
 - 🔹Sorting files by:
 - Extension (categories based on file types)
 - Content type (images, documents, archives, etc.)
@@ -23,7 +23,7 @@ To create an automatic sorter of files that end up in a directory (for example, 
 - 🔹 Deleting empty folders after sorting
 - 🔹 `Undo/Redo` system for undoing/returning actions
   
-###🛠️In work:
+### 🛠️In work:
 - 🔸 Support for custom categories (folder structure customization)
 - 🔸 Development of a module **reminders about cleaning** (Reminder)
 - 🔸 Refactoring and optimization of algorithms
