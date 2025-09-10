@@ -23,14 +23,15 @@ type actions struct {
 	source      string
 	destination string
 }
-type fileInfo struct {
+
+/*type fileInfo struct {
 	name       string
 	extension  string
-	category   string
+	category   string              -для использования в дальнейшем
 	size       float64
 	lastOpened time.Time
 	isUsed     bool
-}
+}*/
 
 // ----------------Функция для отслеживания переименования папок (или создания новых папок для тех же категорий файлов)--------------
 
@@ -42,17 +43,33 @@ func MakeMap(pkgs map[string]string) map[string][]string {
 	}
 	return revPkgs
 }
-func ScanFiles(fileInfo) {
+func ScanFiles( /*fileInfo*/ ) {
 
 }
-func findUnexpPkgs(tempMap map[string]string) {
+func findUnexpPkgs(tempMap map[string]string, pkgs map[string]string, workingDir string) {
+	succesCheck := make([]string, 0)
+	failedCheck := make([]string, 0)
 	for folder, category := range tempMap {
 		if folder != category {
-			fmt.Printf("Внимание, непредвиденная папка %s! Предположительная категория файлов: %s\n", folder, category)
+			fmt.Printf("Внимание, непредвиденная папка %s! Предположительная категория файлов: %s! ", folder, category)
+			folderCont, _ := os.ReadDir(path.Join(workingDir, folder))
+			for _, content := range folderCont {
+				contExts := path.Ext(content.Name())
+				if pkgs[contExts] == category {
+					succesCheck = append(succesCheck, contExts)
+				} else {
+					failedCheck = append(failedCheck, contExts)
+				}
+			}
+			if len(failedCheck) > len(succesCheck) {
+				succesCheck, failedCheck = failedCheck, succesCheck
+			}
+			capacity := float64(len(succesCheck)) + float64(len(failedCheck))
+			percentage := float64(len(succesCheck)) / (capacity * 0.01)
+			fmt.Printf("%.1f процентов файлов в папке принадлежат к этой категории", percentage)
 		}
 	}
 }
-
 func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string][]string) map[string]string {
 	tempMap := make(map[string]string)
 	elems, _ := os.ReadDir(workingDir)
@@ -71,8 +88,6 @@ func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string]
 				allExts := revPkgs[targetPackage]
 				tempMap[elem.Name()] = targetPackage
 				revPkgs[elem.Name()] = allExts
-				fmt.Printf("Папка %s содержит файлы категории %s (%v)\n", elem.Name(), targetPackage, allExts)
-
 			}
 			// tempMap - Мапа, с которой мы будем работать при написании правил (Папка - категория)
 			// revPkgs - Мапа (категория - расширения)
@@ -85,7 +100,7 @@ func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string]
 func (ct SortByContent) Reminder(workingDir string, logFile *os.File, pkgs map[string]string) {
 	revPkgs := MakeMap(pkgs)
 	tempMap := getTrgetPckg(workingDir, pkgs, revPkgs)
-	findUnexpPkgs(tempMap)
+	findUnexpPkgs(tempMap, pkgs, workingDir)
 }
 
 /*
