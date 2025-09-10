@@ -23,9 +23,16 @@ type actions struct {
 	source      string
 	destination string
 }
+type fileInfo struct {
+	name       string
+	extension  string
+	category   string
+	size       float64
+	lastOpened time.Time
+	isUsed     bool
+}
 
-// --------------------------Функция для отслеживания переименования папок по умолчанию-----------------
-func renameDefPkg(workingDir string) {}
+// ----------------Функция для отслеживания переименования папок (или создания новых папок для тех же категорий файлов)--------------
 
 // ---------------------------------Функция для напоминаний-------------------------------
 func MakeMap(pkgs map[string]string) map[string][]string {
@@ -35,10 +42,19 @@ func MakeMap(pkgs map[string]string) map[string][]string {
 	}
 	return revPkgs
 }
-func ApplyRules() {
-	/**/
+func ScanFiles(fileInfo) {
+
 }
-func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string][]string) {
+func findUnexpPkgs(tempMap map[string]string) {
+	for folder, category := range tempMap {
+		if folder != category {
+			fmt.Printf("Внимание, непредвиденная папка %s! Предположительная категория файлов: %s\n", folder, category)
+		}
+	}
+}
+
+func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string][]string) map[string]string {
+	tempMap := make(map[string]string)
 	elems, _ := os.ReadDir(workingDir)
 	for _, elem := range elems {
 		if elem.IsDir() {
@@ -53,14 +69,23 @@ func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string]
 			}
 			if targetPackage != "" {
 				allExts := revPkgs[targetPackage]
+				tempMap[elem.Name()] = targetPackage
+				revPkgs[elem.Name()] = allExts
 				fmt.Printf("Папка %s содержит файлы категории %s (%v)\n", elem.Name(), targetPackage, allExts)
+
 			}
+			// tempMap - Мапа, с которой мы будем работать при написании правил (Папка - категория)
+			// revPkgs - Мапа (категория - расширения)
+			// allExts - Пользовательская мапа
 		}
 	}
+	return tempMap
 }
+
 func (ct SortByContent) Reminder(workingDir string, logFile *os.File, pkgs map[string]string) {
 	revPkgs := MakeMap(pkgs)
-	getTrgetPckg(workingDir, pkgs, revPkgs)
+	tempMap := getTrgetPckg(workingDir, pkgs, revPkgs)
+	findUnexpPkgs(tempMap)
 }
 
 /*
@@ -260,6 +285,8 @@ func (ct SortByContent) SortFiles(workingDir string, listOfFiles []os.DirEntry) 
 		".gif":        "Pictures",
 		".jpeg":       "Pictures",
 		".svg":        "Pictures",
+		".bmp":        "Pictures",
+		".psd":        "Pictures",
 		".flac":       "Music",
 		".mp3":        "Music",
 		".wav":        "Music",
@@ -326,16 +353,10 @@ func main() {
 	doSorting(byExt)*/
 }
 
-//3.09 - 4.09 Столкновения имен обрабатывать (давать выбор пользователю) ----> если это возможно, выполнять сравнение и показывать отличия
-//4.09 - 9.09 Remind about old files
-//remind about doubles
-//remind about huge media files
-//remind about screenshots
-//remind about picture files
+//Столкновения имен обрабатывать (давать выбор пользователю) ----> если это возможно, выполнять сравнение и показывать отличия
+//Система напоминаний
+//Постепенно приводить код к парадигме go-way с элементами ООП
 //Организация кода (рефакторинг с использованием пакетов)
-//Автоматическое отслеживание появления новых файлов для запуска программы
-//Рассмотреть возможность создания графинтерфейса на Go
-//Вынести настройки в YAML/JSON конфиг
-//Ранжирование по времени (папки) внутри папок/
-
 //Следующий крупный шаг - БД и связи
+//Рассмотреть возможность создания графинтерфейса на Go
+//Интеграция в проводник с доступом из UI или контекстного меню
