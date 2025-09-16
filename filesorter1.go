@@ -11,31 +11,68 @@ import (
 
 // ----------------------------------Правила сортировки------------------------------------
 type GetRules interface {
-	SortFiles(workingDir string, listOfFiles []os.DirEntry) map[string]string
-	Reminder(workingDir string, logFile *os.File, pkgs map[string]string)
+	SortFiles() map[string]string
+	Reminder(file os.DirEntry, workingDir string, logFile *os.File, pkgs map[string]string)
 }
+
 type SortByExtension struct {
 }
+
 type SortByContent struct {
 }
+
+type log struct {
+}
+
 type actions struct {
 	file        string
 	source      string
 	destination string
 }
 
-/*type fileInfo struct {
-	name       string
-	extension  string
-	category   string              -для использования в дальнейшем
-	size       float64
-	lastOpened time.Time
-	isUsed     bool
-}*/
+type fileInfo struct {
+	name        string
+	parent      string
+	extension   string
+	category    string
+	destination string
+	size        float64
+	lastOpened  time.Time
+	isUsed      bool
+}
 
 // ----------------Функция для отслеживания переименования папок (или создания новых папок для тех же категорий файлов)--------------
 
 // ---------------------------------Функция для напоминаний-------------------------------
+func newFileInfo(file os.DirEntry, workingDir string, pkgs map[string]string) *fileInfo {
+	ext := strings.ToLower(path.Ext(file.Name()))
+	category := pkgs[ext]
+	return &fileInfo{
+		name:      file.Name(),
+		extension: strings.ToLower(path.Ext(file.Name())),
+		parent:    workingDir,
+		category:  category,
+	}
+}
+
+func (fi fileInfo) fullPath() string {
+	fullpath := path.Join(fi.parent, fi.name)
+	return fullpath
+}
+func (fi *fileInfo) checkCategory() {
+	if fi.extension == ".log" {
+		fi.category = "LOGS"
+	}
+	isFolder, _ := os.Stat(path.Join(fi.parent, fi.name))
+	if fi.category == "" && !isFolder.IsDir() {
+		fi.category = "Others"
+		os.Mkdir(path.Join(fi.parent, fi.category), 0755)
+		os.Rename(fi.fullPath(), path.Join(fi.parent, fi.category, fi.name))
+		fmt.Println(fi.fullPath(), "-->", path.Join(fi.parent, fi.category, fi.name))
+	}
+	fmt.Println(fi.category, "- rfntujhz")
+}
+
 func MakeMap(pkgs map[string]string) map[string][]string {
 	revPkgs := make(map[string][]string)
 	for extension, packageName := range pkgs {
@@ -43,10 +80,7 @@ func MakeMap(pkgs map[string]string) map[string][]string {
 	}
 	return revPkgs
 }
-func ScanFiles( /*fileInfo*/ ) {
-
-}
-func findUnexpPkgs(tempMap map[string]string, pkgs map[string]string, workingDir string) {
+func (fi fileInfo) findUnexpPkgs(tempMap map[string]string, pkgs map[string]string, workingDir string) {
 	succesCheck := make([]string, 0)
 	failedCheck := make([]string, 0)
 	for folder, category := range tempMap {
@@ -60,27 +94,32 @@ func findUnexpPkgs(tempMap map[string]string, pkgs map[string]string, workingDir
 				} else {
 					failedCheck = append(failedCheck, contExts)
 				}
+				if len(failedCheck) > len(succesCheck) {
+					succesCheck, failedCheck = failedCheck, succesCheck
+				}
 			}
-			if len(failedCheck) > len(succesCheck) {
-				succesCheck, failedCheck = failedCheck, succesCheck
-			}
+			fi.category = succesCheck[0]
 			capacity := float64(len(succesCheck)) + float64(len(failedCheck))
 			percentage := float64(len(succesCheck)) / (capacity * 0.01)
-			fmt.Printf("%.1f процентов файлов в папке принадлежат к этой категории", percentage)
+			fmt.Printf("%.1f процентов файлов в папке принадлежат к этой категории\n", percentage)
 		}
 	}
 }
-func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string][]string) map[string]string {
+func (fi fileInfo) getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string][]string) map[string]string {
 	tempMap := make(map[string]string)
 	elems, _ := os.ReadDir(workingDir)
 	for _, elem := range elems {
 		if elem.IsDir() {
 			content, _ := os.ReadDir(path.Join(workingDir, elem.Name()))
+			fi.parent = elem.Name()
 			targetPackage := ""
 			for _, files := range content {
+				fi.name = files.Name()
 				extension := strings.ToLower(path.Ext(files.Name()))
+				fi.extension = extension
 				if packageName, ok := pkgs[extension]; ok {
 					targetPackage = packageName
+					fi.category = targetPackage
 					break
 				}
 			}
@@ -97,10 +136,12 @@ func getTrgetPckg(workingDir string, pkgs map[string]string, revPkgs map[string]
 	return tempMap
 }
 
-func (ct SortByContent) Reminder(workingDir string, logFile *os.File, pkgs map[string]string) {
+func (ct SortByContent) Reminder(file os.DirEntry, workingDir string, logFile *os.File, pkgs map[string]string) {
 	revPkgs := MakeMap(pkgs)
-	tempMap := getTrgetPckg(workingDir, pkgs, revPkgs)
-	findUnexpPkgs(tempMap, pkgs, workingDir)
+	fi := newFileInfo(file, workingDir, pkgs)
+	tempMap := fi.getTrgetPckg(workingDir, pkgs, revPkgs)
+	fi.findUnexpPkgs(tempMap, pkgs, workingDir)
+	fi.checkCategory()
 }
 
 /*
@@ -188,27 +229,25 @@ func Redo(undoStack *[]actions, redoStack *[]actions, logFile *os.File) error {
 
 //--------------------------------Вспомогательные функции для сортировки--------------------------------
 
-func Sort(pkgs map[string]string, workingDir string, listOfFiles []os.DirEntry, logFile *os.File) ([]actions, []actions) { //Разделить
-	//Создание папок и стэков - MkFilesNStakes
-	//SortAlg - непосредственно сортировка
-	//
+func (fi *fileInfo) Sort(pkgs map[string]string, listOfFiles []os.DirEntry, logFile *os.File) ([]actions, []actions) { //Разделить
 	undoStack := make([]actions, 0)
 	redoStack := make([]actions, 0)
-	for _, packageName := range pkgs {
-		os.Mkdir(workingDir+packageName, 0755)
+	for _, fi.destination = range pkgs {
+		os.Mkdir(fi.parent+fi.destination, 0755)
 	}
 	for _, file := range listOfFiles {
-		extensions := strings.ToLower(path.Ext(file.Name()))
-		if !(file.IsDir()) && extensions != ".log" {
-			packageName, ok := pkgs[extensions]
-			if !ok {
+		fi.extension = strings.ToLower(path.Ext(file.Name()))
+		if !(file.IsDir()) && fi.extension != ".log" {
+			fi.destination = pkgs[fi.extension]
+			/*if !ok {
 				os.Mkdir(workingDir+"Others", 0755)
 				packageName = "Others"
-			}
-			file := file.Name()
-			os.Rename(path.Join(workingDir+file), path.Join(workingDir, packageName, file))
-			WriteLog(file, packageName, workingDir, logFile)
-			action := actions{file, workingDir, packageName}
+			}*/
+			fi.name = file.Name()
+			os.Rename(path.Join(fi.parent+fi.name), path.Join(fi.parent, fi.destination, fi.name))
+			fmt.Println(path.Join(fi.parent+fi.name), "-->", path.Join(fi.parent, fi.destination, fi.name))
+			WriteLog(fi.name, fi.destination, fi.parent, logFile)
+			action := actions{fi.name, fi.parent, fi.destination}
 			undoStack = append(undoStack, action)
 		}
 	}
@@ -258,7 +297,7 @@ func DelPkgs(workingDir string, logFile *os.File) {
 		}
 	}
 }
-func (ext SortByExtension) SortFiles(workingDir string, listOfFiles []os.DirEntry) map[string]string {
+func (ext SortByExtension) SortFiles() map[string]string {
 	pkgs := map[string]string{
 		".jpg":        "JPG&JPEGs",
 		".jpeg":       "JPG&JPEGs",
@@ -293,7 +332,7 @@ func (ext SortByExtension) SortFiles(workingDir string, listOfFiles []os.DirEntr
 	return pkgs
 }
 
-func (ct SortByContent) SortFiles(workingDir string, listOfFiles []os.DirEntry) map[string]string {
+func (ct SortByContent) SortFiles() map[string]string {
 	pkgs := map[string]string{
 		".jpg":        "Pictures",
 		".png":        "Pictures",
@@ -347,17 +386,20 @@ func doSorting(rule GetRules) {
 	workingDir, _ := os.UserHomeDir()
 	workingDir += "/Загрузки/"
 	listOfFiles, _ := os.ReadDir(workingDir)
-	pkgs := rule.SortFiles(workingDir, listOfFiles)
-	nameLogPack, err := LogPack(pkgs)
-	logFile := MakeLogFile(err, workingDir, nameLogPack)
-	undoStack, redoStack := Sort(pkgs, workingDir, listOfFiles, logFile)
-	DelOldLogs(workingDir, logFile, nameLogPack)
-	DelPkgs(workingDir, logFile)
-	Undo(&undoStack, &redoStack, logFile)
-	Redo(&undoStack, &redoStack, logFile)
-	rule.Reminder(workingDir, logFile, pkgs)
-	logFile.WriteString("\n")
-	defer logFile.Close()
+	for _, file := range listOfFiles { //что - то сделать с этим общим циклом
+		pkgs := rule.SortFiles()
+		fi := newFileInfo(file, workingDir, pkgs)
+		nameLogPack, err := LogPack(pkgs)
+		logFile := MakeLogFile(err, workingDir, nameLogPack)
+		undoStack, redoStack := fi.Sort(pkgs, listOfFiles, logFile)
+		DelOldLogs(workingDir, logFile, nameLogPack)
+		DelPkgs(workingDir, logFile)
+		Undo(&undoStack, &redoStack, logFile)
+		Redo(&undoStack, &redoStack, logFile)
+		rule.Reminder(file, workingDir, logFile, pkgs)
+		logFile.WriteString("\n")
+		defer logFile.Close()
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
